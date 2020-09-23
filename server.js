@@ -1,3 +1,7 @@
+'use strict';
+
+require('dotenv').config();
+
 const express = require('express')
 const app = express()
 const bodyParser = require('body-parser')
@@ -5,11 +9,14 @@ const bodyParser = require('body-parser')
 const cors = require('cors')
 
 const mongoose = require('mongoose')
-mongoose.connect(process.env.MLAB_URI || 'mongodb://localhost/exercise-track' )
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost/exercise-track', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
 
 app.use(cors())
 
-app.use(bodyParser.urlencoded({extended: false}))
+app.use(bodyParser.urlencoded({useNewUrlParser: true, extended: false}))
 app.use(bodyParser.json())
 
 
