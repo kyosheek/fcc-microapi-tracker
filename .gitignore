@@ -1,0 +1,5 @@
+node_modules
+.git
+.env
+.sass-cache
+.DS_store
