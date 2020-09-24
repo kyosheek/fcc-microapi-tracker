@@ -128,11 +128,51 @@ app.post('/api/exercise/add',
 );
 
 app.route('/api/exercise/log')
-.get((req, res, next) => {
-  const { userId, from, to, limit } = req.query;
-  console.log(`query params: ${userId} ${from} ${to} ${limit}`);
-  res.send(`GET /api/exercise/log`);
-});
+.get(
+  (req, res, next) => {
+    const { userId } = req.query;
+
+    db_users.findById(userId, (err, data) => {
+      if (err) {
+        console.log(`error in db_users.findById(): ${err}`);
+        return res.json({ error: `error in db` });
+      }
+      if (data == null) {
+        return res.json({ error: `no such user` });
+      }
+      req.body.user = data;
+      req.body.username = data.username;
+      return next();
+    })
+  },
+  (req, res, next) => {
+    const { username } = req.body;
+
+    db_exercises.find({ username }, (err, data) => {
+      if (err) {
+        console.log(err);
+        return res.json({ error: `no exercises for this user` });
+      }
+      data.sort((a, b) => new Date(a.date).valueOf() - new Date(b.date).vlueOf());
+      const { from, to, limit } = req.query;
+      if (from) data = data.filter(o => new Date(o.date).valueOf() >= new Date(from).valueOf());
+      if (to) data = data.filter(o => new Date(o.date).valueOf() <= new Date(from).valueOf());
+      if (limit) data = data.splice(0, data.length - 1 - limit);
+
+      req.body.log = data;
+      req.body.count = data.length;
+
+      return next();
+    });
+  },
+  (req, res) => {
+    const result = Object.assign({}, req.body.user);
+    result.count = req.body.count;
+    result.log = req.body.log;
+
+    return res.json(result);
+  }
+);
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port);
