@@ -127,6 +127,18 @@ app.post('/api/exercise/add',
   }
 );
 
+app.route('/api/exercise/users')
+.get((req, res, next) => {
+  db_users.find({},
+    (err, data) => {
+      if (err) {
+        console.log(`error GET /api/exercise/users: ${err}`);
+        return res.json({ error: `searching for users` });
+      }
+      res.send(data);
+  });
+});
+
 app.route('/api/exercise/log')
 .get(
   (req, res, next) => {
