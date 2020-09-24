@@ -98,6 +98,7 @@ app.post('/api/exercise/add',
       if (data == null) {
         return res.json({ error: `no such user` });
       }
+      req.body.user = data;
       req.body.username = data.username;
       return next();
     });
@@ -122,13 +123,23 @@ app.post('/api/exercise/add',
         console.log(err);
         return res.json({ error: `error adding new exercise` });
       }
-      return res.json(data);
+      const { username, _id } = req.body.user;
+      const { description, duration, date } = data;
+      const expected = {
+        username,
+        _id,
+        description,
+        duration,
+        date
+      };
+
+      return res.json(expected);
     });
   }
 );
 
 app.route('/api/exercise/users')
-.get((req, res, next) => {
+.get((req, res) => {
   db_users.find({},
     (err, data) => {
       if (err) {
@@ -165,11 +176,11 @@ app.route('/api/exercise/log')
         console.log(err);
         return res.json({ error: `no exercises for this user` });
       }
-      data.sort((a, b) => new Date(a.date).valueOf() - new Date(b.date).vlueOf());
+      data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       const { from, to, limit } = req.query;
-      if (from) data = data.filter(o => new Date(o.date).valueOf() >= new Date(from).valueOf());
-      if (to) data = data.filter(o => new Date(o.date).valueOf() <= new Date(from).valueOf());
-      if (limit) data = data.splice(0, data.length - 1 - limit);
+      if (from) data = data.filter(o => new Date(o.date).getTime() >= new Date(from).getTime());
+      if (to) data = data.filter(o => new Date(o.date).getTime() <= new Date(to).getTime());
+      if (limit) data = data.slice(-limit);
 
       req.body.log = data;
       req.body.count = data.length;
