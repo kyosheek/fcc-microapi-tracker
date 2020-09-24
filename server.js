@@ -2,54 +2,138 @@
 
 require('dotenv').config();
 
-const express = require('express')
-const app = express()
-const bodyParser = require('body-parser')
+const express = require('express');
+const app = express();
+const bodyParser = require('body-parser');
 
-const cors = require('cors')
+const cors = require('cors');
 
 const mongoose = require('mongoose')
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost/exercise-track', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
 
-app.use(cors())
+app.use(cors());
 
-app.use(bodyParser.urlencoded({useNewUrlParser: true, extended: false}))
-app.use(bodyParser.json())
-
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
 app.use(express.static('public'))
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html')
 });
 
-
 // Not found middleware
-app.use((req, res, next) => {
-  return next({status: 404, message: 'not found'})
-})
+app.use((err, req, res, next) => {
+  if (!req.route) return next({ status: 404, message: 'not found' });
+});
 
 // Error Handling middleware
 app.use((err, req, res, next) => {
-  let errCode, errMessage
+  let errCode, errMessage;
 
   if (err.errors) {
     // mongoose validation error
-    errCode = 400 // bad request
-    const keys = Object.keys(err.errors)
+    errCode = 400; // bad request
+    const keys = Object.keys(err.errors);
     // report the first validation error
-    errMessage = err.errors[keys[0]].message
+    errMessage = err.errors[keys[0]].message;
   } else {
     // generic or custom error
-    errCode = err.status || 500
-    errMessage = err.message || 'Internal Server Error'
+    errCode = err.status || 500;
+    errMessage = err.message || 'Internal Server Error';
   }
   res.status(errCode).type('txt')
     .send(errMessage)
-})
+});
+
+const db = mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+});
+
+const userSchema = new mongoose.Schema({
+  username: String
+});
+
+const exerciseSchema = new mongoose.Schema({
+  username: String,
+  description: String,
+  duration: Number,
+  date: String
+});
+
+const db_users = mongoose.model('tracker_users', userSchema);
+const db_exercises = mongoose.model('tracker_exercises', exerciseSchema);
+
+app.post('/api/exercise/new-user', (req, res, next) => {
+  const { username } = req.body;
+  db_users
+  .find({ username }, (err, data) => {
+    if (err) {
+      console.log(err);
+      return res.json({ error: `new-user error`});
+    }
+    if (data.length > 0) {
+      return res.json({ error: `user with this username already exists`});
+    } else {
+      db_users.create({ username }, (err, data) => {
+        if (err) {
+          console.log(err);
+          return res.json({ error: `error while creating new user` });
+        }
+        return res.json({ username, _id: data._id });
+      })
+    }
+  });
+});
+
+app.post('/api/exercise/add',
+  (req, res, next) => {
+    const { userId } = req.body;
+
+    db_users
+    .findById(userId, (err, data) => {
+      if (err) {
+        console.log(`error in db_users.findById(): ${err}`);
+        return res.json({ error: `error in db` });
+      }
+      if (data == null) {
+        return res.json({ error: `no such user` });
+      }
+      req.body.username = data.username;
+      return next();
+    });
+  },
+  (req, res, next) => {
+    let { date } = req.body;
+    if (!date) date = new Date().toDateString();
+    else date = new Date(date).toDateString();
+
+    const { username, description } = req.body;
+    const duration = Number(req.body.duration);
+
+    const exercise = {
+      username,
+      description,
+      duration,
+      date
+    };
+
+    db_exercises.create(exercise, (err, data) => {
+      if (err) {
+        console.log(err);
+        return res.json({ error: `error adding new exercise` });
+      }
+      return res.json(data);
+    });
+  }
+);
+
+app.route('/api/exercise/log')
+.get((req, res, next) => {
+  const { userId, from, to, limit } = req.query;
+  console.log(`query params: ${userId} ${from} ${to} ${limit}`);
+  res.send(`GET /api/exercise/log`);
+});
 
 const listener = app.listen(process.env.PORT || 3000, () => {
-  console.log('Your app is listening on port ' + listener.address().port)
+  console.log('Your app is listening on port ' + listener.address().port);
 })
